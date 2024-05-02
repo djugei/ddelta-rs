@@ -29,7 +29,7 @@
 //! [XzDecoder]: https://docs.rs/xz2/*/xz2/read/struct.XzDecoder.html
 
 use byteorder::BigEndian;
-use zerocopy::{AsBytes, FromBytes, Unaligned, I64, U64};
+use zerocopy::{AsBytes, FromBytes, FromZeroes, Unaligned, I64, U64};
 
 #[cfg(feature = "diff")]
 pub use diff::{generate, generate_chunked};
@@ -58,14 +58,14 @@ pub enum State {
     Working(u64),
 }
 
-#[derive(Debug, Copy, Clone, FromBytes, AsBytes, Unaligned)]
+#[derive(Debug, Copy, Clone, FromZeroes, FromBytes, AsBytes, Unaligned)]
 #[repr(C)]
 struct PatchHeader {
     magic: [u8; 8],
     new_file_size: U64<BigEndian>,
 }
 
-#[derive(Debug, Copy, Clone, FromBytes, AsBytes, Unaligned)]
+#[derive(Debug, Copy, Clone, FromZeroes, FromBytes, AsBytes, Unaligned)]
 #[repr(C)]
 struct EntryHeader {
     diff: U64<BigEndian>,

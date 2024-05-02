@@ -2,7 +2,7 @@ use std::io::{ErrorKind, Read, Seek, SeekFrom, Write};
 use std::mem::size_of;
 
 use thiserror::Error;
-use zerocopy::LayoutVerified;
+use zerocopy::Ref;
 
 use crate::{EntryHeader, PatchHeader, DDELTA_MAGIC};
 
@@ -25,7 +25,7 @@ macro_rules! read {
             .read_exact(&mut buf)
             .map_err(|err| err.into())
             .and_then(|_| {
-                LayoutVerified::<_, $type>::new(&buf[..])
+                Ref::<_, $type>::new(&buf[..])
                     .map(|data| *data)
                     .ok_or_else(|| ApplicationError::Internal("Bytes not aligned".into()))
             });
