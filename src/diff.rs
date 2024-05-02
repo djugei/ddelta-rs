@@ -49,6 +49,9 @@ fn read_up_to(reader: &mut impl Read, buf: &mut [u8]) -> Result<usize> {
 /// limit. Pass [`None`] as a parameter to set no limit. Note that this uses anything implementing
 /// `Into<Option<usize>>`, including a [`usize`] itself, so you can just pass a number to that
 /// parameter. A smaller `chunk_sizes` value uses less RAM, but creates less optimal patches.
+// todo: i don't think impl Read is a honest representation of whats happening.
+// this reads gigabytes of data into memory at first opportunity
+// take (&[u8], &[u8], impl Write) instead
 pub fn generate_chunked(
     old_f: &mut impl Read,
     new_f: &mut impl Read,
