@@ -1,14 +1,21 @@
 use std::io::{ErrorKind, Read, Seek, SeekFrom, Write};
 use std::mem::size_of;
 
+use thiserror::Error;
 use zerocopy::LayoutVerified;
-
-use anyhow::{anyhow, bail, ensure};
 
 use crate::{EntryHeader, PatchHeader, DDELTA_MAGIC};
 
-use super::Result;
-use std::io;
+type Str = Box<str>;
+type Result<T> = std::result::Result<T, ApplicationError>;
+
+#[derive(Error, Debug)]
+pub enum ApplicationError {
+    #[error("io error while applying patch {0}")]
+    Io(#[from] std::io::Error),
+    #[error("patch application failed: {0}")]
+    Internal(Str),
+}
 
 const BLOCK_SIZE: u64 = 32 * 1024;
 macro_rules! read {
@@ -20,7 +27,7 @@ macro_rules! read {
             .and_then(|_| {
                 LayoutVerified::<_, $type>::new(&buf[..])
                     .map(|data| *data)
-                    .ok_or_else(|| anyhow!("Bytes not aligned"))
+                    .ok_or_else(|| ApplicationError::Internal("Bytes not aligned".into()))
             });
         data
     }};
@@ -70,7 +77,9 @@ fn apply_with_header(
     patch: &mut impl Read,
     header: PatchHeader,
 ) -> Result<()> {
-    ensure!(&header.magic == DDELTA_MAGIC, "Invalid magic number");
+    if !(&header.magic == DDELTA_MAGIC) {
+        return Err(ApplicationError::Internal("Invalid magic number".into()));
+    }
     let mut bytes_written = 0;
     loop {
         let entry = read!(patch, EntryHeader)?;
@@ -78,7 +87,7 @@ fn apply_with_header(
             return if bytes_written == header.new_file_size.get() {
                 Ok(())
             } else {
-                bail!("Patch too short");
+                Err(ApplicationError::Internal("Patch too short".into()))
             };
         }
         apply_diff(patch, old, new, entry.diff.get())?;
@@ -115,13 +124,9 @@ pub fn apply_chunked(
         let header = match read!(patch, PatchHeader) {
             Ok(header) => header,
             Err(e) => {
-                return if e
-                    .downcast_ref::<io::Error>()
-                    .map_or(false, |e| e.kind() == ErrorKind::UnexpectedEof)
-                {
-                    Ok(())
-                } else {
-                    Err(e)
+                return match e {
+                    ApplicationError::Io(e) if e.kind() == ErrorKind::UnexpectedEof => Ok(()),
+                    ApplicationError::Internal(_) | ApplicationError::Io(_) => Err(e),
                 }
             }
         };

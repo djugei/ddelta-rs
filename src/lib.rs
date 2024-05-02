@@ -31,7 +31,6 @@
 use byteorder::BigEndian;
 use zerocopy::{AsBytes, FromBytes, Unaligned, I64, U64};
 
-use anyhow::Result;
 #[cfg(feature = "diff")]
 pub use diff::{generate, generate_chunked};
 pub use patch::{apply, apply_chunked};

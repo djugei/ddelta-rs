@@ -2,13 +2,24 @@ use std::cmp::Ordering;
 use std::i32;
 use std::io::{ErrorKind, Read, Write};
 
-use anyhow::{ensure, Context, Result};
 use byteorder::WriteBytesExt;
 #[cfg(not(feature = "c"))]
 use divsufsort as cdivsufsort;
+use thiserror::Error;
 use zerocopy::{AsBytes, I64, U64};
 
 use crate::{EntryHeader, PatchHeader, State, DDELTA_MAGIC};
+
+type Str = Box<str>;
+type Result<T> = std::result::Result<T, GenerationError>;
+
+#[derive(Error, Debug)]
+pub enum GenerationError {
+    #[error("io error while generating patch {0}")]
+    Io(#[from] std::io::Error),
+    #[error("patch generation failed: {0}")]
+    Internal(Str),
+}
 
 const FUZZ: isize = 8;
 
@@ -86,7 +97,7 @@ fn write_header(patch: &mut impl Write, len: u64) -> Result<()> {
             }
             .as_bytes(),
         )
-        .context("Failed to write to patch file")
+        .map_err(|e| e.into())
 }
 
 fn write_ending(patch: &mut impl Write) -> Result<()> {
@@ -99,7 +110,7 @@ fn write_ending(patch: &mut impl Write) -> Result<()> {
             }
             .as_bytes(),
         )
-        .context("Failed to write to patch file")
+        .map_err(|e| e.into())
 }
 
 /// Generate a ddelta patch. This has a limit of 2^31-1 bytes.
@@ -115,11 +126,11 @@ pub fn generate(
     patch: &mut impl Write,
     mut progress: impl FnMut(State) -> (),
 ) -> Result<()> {
-    ensure!(
-        old.len().max(new.len()) < i32::MAX as usize,
-        "The filesize must not be larger than {} bytes",
-        i32::MAX
-    );
+    if !old.len().max(new.len()) < i32::MAX as usize {
+        return Err(GenerationError::Internal(
+            format!("The filesize must not be larger than {} bytes", i32::MAX).into(),
+        ));
+    }
     progress(State::Sorting);
     write_header(patch, new.len() as u64)?;
     let mut sorted = cdivsufsort::sort(old).into_parts().1;
@@ -250,29 +261,25 @@ pub fn generate(
                 lenb -= lens;
             }
             if lenf < 0 || (scan - lenb) - (lastscan + lenf) < 0 {
-                panic!();
+                return Err(GenerationError::Internal(
+                    "invalid state while creating patch".into(),
+                ));
             }
-            patch
-                .write_all(
-                    EntryHeader {
-                        diff: U64::new(lenf as u64),
-                        extra: U64::new(((scan - lenb) - (lastscan + lenf)) as u64),
-                        seek: I64::new(((pos - lenb) - (lastpos + lenf)) as i64),
-                    }
-                    .as_bytes(),
-                )
-                .context("Failed to write to patch file")?;
+            patch.write_all(
+                EntryHeader {
+                    diff: U64::new(lenf as u64),
+                    extra: U64::new(((scan - lenb) - (lastscan + lenf)) as u64),
+                    seek: I64::new(((pos - lenb) - (lastpos + lenf)) as i64),
+                }
+                .as_bytes(),
+            )?;
             for i in 0..lenf {
-                patch
-                    .write_u8(
-                        new[(lastscan + i) as usize].wrapping_sub(old[(lastpos + i) as usize]),
-                    )
-                    .context("Failed to write to patch file")?;
+                patch.write_u8(
+                    new[(lastscan + i) as usize].wrapping_sub(old[(lastpos + i) as usize]),
+                )?;
             }
             if (scan - lenb) - (lastscan + lenf) != 0 {
-                patch
-                    .write_all(&new[(lastscan + lenf) as usize..(scan - lenb) as usize])
-                    .context("Failed to write to patch file")?;
+                patch.write_all(&new[(lastscan + lenf) as usize..(scan - lenb) as usize])?;
             }
 
             lastscan = scan - lenb;
