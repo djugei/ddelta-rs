@@ -32,8 +32,8 @@ use byteorder::BigEndian;
 use zerocopy::{AsBytes, FromBytes, FromZeroes, Unaligned, I64, U64};
 
 #[cfg(feature = "diff")]
-pub use diff::{generate, generate_chunked};
-pub use patch::{apply, apply_chunked};
+pub use diff::{generate, generate_chunked, DiffError};
+pub use patch::{apply, apply_chunked, PatchError};
 
 const DDELTA_MAGIC: &[u8; 8] = b"DDELTA40";
 

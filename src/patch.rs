@@ -7,10 +7,10 @@ use zerocopy::Ref;
 use crate::{EntryHeader, PatchHeader, DDELTA_MAGIC};
 
 type Str = Box<str>;
-type Result<T> = std::result::Result<T, ApplicationError>;
+type Result<T> = std::result::Result<T, PatchError>;
 
 #[derive(Error, Debug)]
-pub enum ApplicationError {
+pub enum PatchError {
     #[error("io error while applying patch {0}")]
     Io(#[from] std::io::Error),
     #[error("patch application failed: {0}")]
@@ -27,7 +27,7 @@ macro_rules! read {
             .and_then(|_| {
                 Ref::<_, $type>::new(&buf[..])
                     .map(|data| *data)
-                    .ok_or_else(|| ApplicationError::Internal("Bytes not aligned".into()))
+                    .ok_or_else(|| PatchError::Internal("Bytes not aligned".into()))
             });
         data
     }};
@@ -78,7 +78,7 @@ fn apply_with_header(
     header: PatchHeader,
 ) -> Result<()> {
     if !(&header.magic == DDELTA_MAGIC) {
-        return Err(ApplicationError::Internal("Invalid magic number".into()));
+        return Err(PatchError::Internal("Invalid magic number".into()));
     }
     let mut bytes_written = 0;
     loop {
@@ -87,7 +87,7 @@ fn apply_with_header(
             return if bytes_written == header.new_file_size.get() {
                 Ok(())
             } else {
-                Err(ApplicationError::Internal("Patch too short".into()))
+                Err(PatchError::Internal("Patch too short".into()))
             };
         }
         apply_diff(patch, old, new, entry.diff.get())?;
@@ -125,8 +125,8 @@ pub fn apply_chunked(
             Ok(header) => header,
             Err(e) => {
                 return match e {
-                    ApplicationError::Io(e) if e.kind() == ErrorKind::UnexpectedEof => Ok(()),
-                    ApplicationError::Internal(_) | ApplicationError::Io(_) => Err(e),
+                    PatchError::Io(e) if e.kind() == ErrorKind::UnexpectedEof => Ok(()),
+                    PatchError::Internal(_) | PatchError::Io(_) => Err(e),
                 }
             }
         };

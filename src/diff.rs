@@ -11,10 +11,10 @@ use zerocopy::{AsBytes, I64, U64};
 use crate::{EntryHeader, PatchHeader, State, DDELTA_MAGIC};
 
 type Str = Box<str>;
-type Result<T> = std::result::Result<T, GenerationError>;
+type Result<T> = std::result::Result<T, DiffError>;
 
 #[derive(Error, Debug)]
-pub enum GenerationError {
+pub enum DiffError {
     #[error("io error while generating patch {0}")]
     Io(#[from] std::io::Error),
     #[error("patch generation failed: {0}")]
@@ -130,7 +130,7 @@ pub fn generate(
     mut progress: impl FnMut(State) -> (),
 ) -> Result<()> {
     if !old.len().max(new.len()) < i32::MAX as usize {
-        return Err(GenerationError::Internal(
+        return Err(DiffError::Internal(
             format!("The filesize must not be larger than {} bytes", i32::MAX).into(),
         ));
     }
@@ -264,7 +264,7 @@ pub fn generate(
                 lenb -= lens;
             }
             if lenf < 0 || (scan - lenb) - (lastscan + lenf) < 0 {
-                return Err(GenerationError::Internal(
+                return Err(DiffError::Internal(
                     "invalid state while creating patch".into(),
                 ));
             }
