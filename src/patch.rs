@@ -25,9 +25,9 @@ macro_rules! read {
             .read_exact(&mut buf)
             .map_err(|err| err.into())
             .and_then(|_| {
-                Ref::<_, $type>::new(&buf[..])
+                Ref::<_, $type>::from_bytes(&buf[..])
                     .map(|data| *data)
-                    .ok_or_else(|| PatchError::Internal("Bytes not aligned".into()))
+                    .map_err(|_| PatchError::Internal("Bytes not aligned".into()))
             });
         data
     }};

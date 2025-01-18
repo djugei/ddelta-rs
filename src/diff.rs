@@ -6,7 +6,7 @@ use byteorder::WriteBytesExt;
 #[cfg(not(feature = "c"))]
 use divsufsort as cdivsufsort;
 use thiserror::Error;
-use zerocopy::{AsBytes, I64, U64};
+use zerocopy::{IntoBytes, I64, U64};
 
 use crate::{EntryHeader, PatchHeader, State, DDELTA_MAGIC};
 
