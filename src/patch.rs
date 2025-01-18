@@ -52,7 +52,7 @@ fn apply_diff(
             .zip(patch.iter())
             .for_each(|(old, patch)| *old = old.wrapping_add(*patch));
 
-        new_f.write_all(&old)?;
+        new_f.write_all(old)?;
 
         size -= to_read as u64;
     }
@@ -77,7 +77,7 @@ fn apply_with_header(
     patch: &mut impl Read,
     header: PatchHeader,
 ) -> Result<()> {
-    if !(&header.magic == DDELTA_MAGIC) {
+    if &header.magic != DDELTA_MAGIC {
         return Err(PatchError::Internal("Invalid magic number".into()));
     }
     let mut bytes_written = 0;

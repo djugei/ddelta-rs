@@ -1,5 +1,4 @@
 use std::cmp::Ordering;
-use std::i32;
 use std::io::{ErrorKind, Read, Write};
 
 use byteorder::WriteBytesExt;
@@ -57,7 +56,7 @@ pub fn generate_chunked(
     new_f: &mut impl Read,
     patch_f: &mut impl Write,
     chunk_sizes: impl Into<Option<usize>>,
-    mut progress: impl FnMut(State) -> (),
+    mut progress: impl FnMut(State),
 ) -> Result<()> {
     let chunk_sizes = chunk_sizes
         .into()
@@ -127,7 +126,7 @@ pub fn generate(
     old: &[u8],
     new: &[u8],
     patch: &mut impl Write,
-    mut progress: impl FnMut(State) -> (),
+    mut progress: impl FnMut(State),
 ) -> Result<()> {
     if !old.len().max(new.len()) < i32::MAX as usize {
         return Err(DiffError::Internal(
@@ -154,7 +153,7 @@ pub fn generate(
         // go past that block of data. We need to track the number of
         // times we're stuck in the block and break out of it.
         while scan < new.len() as isize {
-            if scan % 100_00 == 0 {
+            if scan % 10_000 == 0 {
                 progress(State::Working(scan as u64));
             }
             let prev_len = len;
@@ -179,7 +178,7 @@ pub fn generate(
                 scsc += 1;
             }
 
-            if ((len as isize == oldscore) && (len != 0)) || (len as isize > oldscore + 8) {
+            if ((len == oldscore) && (len != 0)) || (len > oldscore + 8) {
                 break;
             }
 
@@ -189,14 +188,14 @@ pub fn generate(
                 oldscore -= 1;
             }
 
-            if prev_len as isize - FUZZ <= len as isize
+            if prev_len - FUZZ <= len
                 && len <= prev_len
                 && prev_oldscore - FUZZ <= oldscore
                 && oldscore <= prev_oldscore
                 && prev_pos <= pos
-                && pos as isize <= prev_pos as isize + FUZZ
-                && oldscore <= len as isize
-                && len as isize <= oldscore + FUZZ
+                && pos <= prev_pos + FUZZ
+                && oldscore <= len
+                && len <= oldscore + FUZZ
             {
                 num_less_than_eight += 1;
             } else {
