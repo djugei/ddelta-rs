@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! A rust port of [ddelta], which is a streaming and more efficient version of [bsdiff]. The
 //! output created by this program is sometimes (when using [`generate`]) compatible with the
 //! original C tool, [ddelta], but not with [bsdiff]. This library may use up to 5 times the old
